@@ -1,3 +1,5 @@
+> **🤖 Vibecoding 产物** — 本仓库由 AI 辅助生成（vibecoding），大量代码通过自然语言描述自动产出。
+
 # Camera YOLO Logger — Minimal Termux Edition
 
 Single-command camera capture → YOLOv8 object detection → CSV log.
