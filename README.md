@@ -8,7 +8,7 @@ cd camera_yolo_logger
 uv sync
 uv run camera-yolo
 ```
-The command deletes the last photo, takes a new one with `termux-camera-photo`, runs YOLOv8 ONNX inference, prints the result, and appends it to `camera_log.csv`.
+The command takes a new photo with `termux-camera-photo`, runs YOLOv8 ONNX inference, prints the result, appends it to `camera_log.csv`, and keeps the latest photo at `Image/camera_yolo_temp.jpg`.
 
 ## Model
 - Default: `yolov8n.onnx` in project root.
@@ -21,7 +21,7 @@ Environment variables (all optional):
 | Variable | Default | Description |
 |---|---|---|
 | `CAMERA_PHOTO_CMD` | `termux-camera-photo` | Camera command |
-| `CAMERA_PHOTO_PATH` | `Image/camera_yolo_temp.jpg` | Temp photo path |
+| `CAMERA_PHOTO_PATH` | `Image/camera_yolo_temp.jpg` | Photo path (latest kept) |
 | `CAMERA_LOG_FILE` | `camera_log.csv` | Log file |
 | `CAMERA_MODEL_PATH` | `yolov8n.onnx` | Model path |
 | `MODEL_DOWNLOAD_URL` | (empty) | Auto‑download URL |
