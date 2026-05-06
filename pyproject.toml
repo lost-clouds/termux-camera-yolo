@@ -1,0 +1,20 @@
+[project]
+name = "camera-yolo-logger"
+version = "1.0.0"
+description = "Termux 专用 YOLO 物体检测拍照工具 — 单一 CLI，模型自动下载"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.21",
+    "onnxruntime>=1.15; sys_platform != 'android'",
+    "pillow>=10.0",
+]
+
+[project.scripts]
+camera-yolo = "camera_yolo_logger.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = []
