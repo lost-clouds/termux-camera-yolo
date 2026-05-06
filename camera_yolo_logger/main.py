@@ -6,7 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from camera_yolo_logger.capture import capture, cleanup_photo
+from camera_yolo_logger.capture import capture
 from camera_yolo_logger.detect import detect
 
 LOG_FILE = Path(os.environ.get("CAMERA_LOG_FILE", "camera_log.csv"))
@@ -22,7 +22,6 @@ def main() -> int:
         return 1
 
     result = detect(img_path)
-    cleanup_photo()
     print(f"{ts},{result}")
     _log(ts, result)
     return 0

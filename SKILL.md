@@ -6,7 +6,7 @@ Minimal Termux camera → YOLO detection → log to CSV, all in one command.
 ```bash
 uv run camera-yolo
 ```
-That's it. Clears last photo, takes a new one with `termux-camera-photo`, runs YOLOv8 object detection, prints the result to stdout, and appends it to `camera_log.csv`.
+That's it. Takes a new photo with `termux-camera-photo`, runs YOLOv8 object detection, prints the result to stdout, appends it to `camera_log.csv`, and keeps the latest photo at `Image/camera_yolo_temp.jpg`.
 
 ## For AI Agents — How to Use This Tool
 
@@ -48,7 +48,7 @@ The tool adapts to the model's input precision (float16/float32) automatically.
 | Variable | Default | Description |
 |---|---|---|
 | `CAMERA_PHOTO_CMD` | `termux-camera-photo` | Camera command |
-| `CAMERA_PHOTO_PATH` | `Image/camera_yolo_temp.jpg` | Temporary photo path |
+| `CAMERA_PHOTO_PATH` | `Image/camera_yolo_temp.jpg` | Photo path (latest kept) |
 | `CAMERA_LOG_FILE` | `camera_log.csv` | CSV log file |
 | `CAMERA_MODEL_PATH` | `yolov8n.onnx` | ONNX model path |
 | `MODEL_DOWNLOAD_URL` | (empty) | Auto-download URL |
