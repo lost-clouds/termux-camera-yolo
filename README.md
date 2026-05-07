@@ -33,5 +33,8 @@ Environment variables (all optional):
 ## For AI Agents
 See `SKILL.md` for integration instructions.
 
+## 友链
+[linux.do](https://linux.do)
+
 ## License
 MIT
