@@ -2,27 +2,94 @@
 
 # Camera YOLO Logger — Minimal Termux Edition
 
-Single-command camera capture → YOLOv8 object detection → CSV / JSON / HTTP API.
+单命令 Termux 摄像头拍照 → YOLOv8 ONNX 物体检测 → CSV / JSON / Webhook / HTTP API。
+
+专为 Android + Termux 环境设计，供 AI Agent (Claude Code / Codex / ZeroClaw) 通过 SKILL.md 调用，也可独立使用。
 
 ## Quick Start
+
 ```bash
-cd camera_yolo_logger
+cd termux-camera-yolo
 uv sync
 uv run camera-yolo
 ```
 
-Takes a photo with `termux-camera-photo`, runs YOLOv8 ONNX inference, prints result, appends to `camera_log.csv`, and keeps the latest photo at `Image/camera_yolo_temp.jpg`.
+拍照 → YOLO 检测 → 输出结果到 stdout + `camera_log.csv`。最新照片保留在 `Image/camera_yolo_temp.jpg`。
+
+如果你的 Termux 已通过 `pkg` 安装了 numpy/pillow/onnxruntime：
+```bash
+uv venv --system-site-packages .venv && uv sync
+```
 
 ## Modes
 
-| Mode | Command | Description |
-|------|---------|-------------|
-| One-shot text | `uv run camera-yolo` | Basic, backwards compatible |
-| One-shot JSON | `uv run camera-yolo --json` | Structured output for AI agents |
-| Class filtering | `uv run camera-yolo --json --classes person car` | Only detect specific objects |
-| Motion pre-filter | `uv run camera-yolo --json --motion` | Skip YOLO when scene is static |
-| Continuous monitor | `uv run camera-yolo --monitor --json --motion --archive` | Run indefinitely |
-| HTTP Server | `uv run camera-yolo --server --server-port 5000` | REST API for AI agents |
+| 模式 | 命令 | 说明 |
+|------|------|------|
+| 一次性 text | `uv run camera-yolo` | 基础用法 (向后兼容) |
+| 一次性 JSON | `uv run camera-yolo --json` | 结构化输出，供 AI Agent 使用 |
+| 类过滤 | `uv run camera-yolo --json --classes person car dog` | 仅检测指定类别 |
+| 运动预过滤 | `uv run camera-yolo --json --motion` | 静态场景跳过 YOLO 推理，降低功耗 |
+| 连续监控 | `uv run camera-yolo --monitor --json --motion --archive` | 持续运行，检测到物体自动存档 |
+| HTTP 服务器 | `uv run camera-yolo --server --server-port 5000` | 提供 REST API 供外部调用 |
+
+## CLI Flags
+
+### 拍照选项
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--photo-cmd` | `termux-camera-photo` | 拍照命令 |
+| `--photo-path` | `Image/camera_yolo_temp.jpg` | 照片保存路径 |
+| `--capture-timeout` | `30` | 拍照超时秒数 |
+| `--capture-retry` | `3` | 拍照失败重试次数 |
+| `--capture-backend` | `termux` | 拍照后端：`termux` / `ipwebcam` / `url` |
+| `--ip-webcam-url` | — | IP Webcam 抓帧 URL |
+
+### 检测选项
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--model` | `yolov8n.onnx` | ONNX 模型路径 |
+| `--model-download-url` | — | 自动下载模型的 URL |
+| `--confidence`, `--conf` | `0.45` | 置信度阈值 |
+| `--iou` | `0.5` | NMS IoU 阈值 |
+| `--classes` | — | 类过滤 (如 `person car dog`) |
+
+### 输出选项
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--json` | `false` | 启用 JSON 格式输出 |
+| `--log-file` | `camera_log.csv` | CSV 日志路径 |
+| `--verbose`, `-v` | `false` | 详细输出到 stderr |
+
+### 运动检测 (功耗优化)
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--motion` | `false` | 启用运动检测预过滤 |
+| `--motion-threshold` | `0.05` | 运动检测灵敏度 (MSE，越小越敏感) |
+| `--motion-resize` | `160` | 灰度缩放尺寸 (越小越快) |
+
+### 连续监控
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--monitor` | `false` | 启用连续监控模式 |
+| `--interval` | `5.0` | 监控间隔秒数 |
+| `--interval-min` | `1.0` | 检测到物体时的最小间隔 |
+| `--interval-max` | `30.0` | 无运动时的最大间隔 |
+| `--archive` | `false` | 检测到物体时存档照片 |
+| `--archive-dir` | `archive` | 存档目录 |
+
+### Webhook 通知
+| 标志 | 说明 |
+|------|------|
+| `--webhook-url` | Webhook 接收 URL |
+| `--webhook-trigger-classes` | 触发通知的目标类别 |
+| `--webhook-cooldown` | 冷却时间 (秒，默认 10) |
+
+### HTTP 服务器
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--server` | `false` | 启动 HTTP API 服务器 |
+| `--server-host` | `127.0.0.1` | 监听地址 |
+| `--server-port` | `5000` | 监听端口 |
 
 ## JSON Output
 
@@ -30,14 +97,31 @@ Takes a photo with `termux-camera-photo`, runs YOLOv8 ONNX inference, prints res
 {
   "version": "1.1.0",
   "timestamp": "2026-05-08T12:34:56Z",
-  "capture": {"success": true, "path": "Image/camera_yolo_temp.jpg", "elapsed_ms": 423.5},
+  "capture": {
+    "success": true,
+    "path": "Image/camera_yolo_temp.jpg",
+    "elapsed_ms": 423.5,
+    "image_size": [1920, 1080]
+  },
   "detection": {
     "success": true,
     "objects": [
-      {"class": "person", "class_id": 0, "confidence": 0.92, "bbox": {"x1": 100, "y1": 200, "x2": 300, "y2": 500}}
+      {
+        "class": "person",
+        "class_id": 0,
+        "confidence": 0.92,
+        "bbox": {"x1": 100, "y1": 200, "x2": 300, "y2": 500}
+      }
     ],
     "summary": "1个人",
-    "elapsed_ms": 850.2
+    "elapsed_ms": 850.2,
+    "config": {
+      "conf_threshold": 0.45,
+      "iou_threshold": 0.5,
+      "model": "yolov8n.onnx",
+      "class_filter": null,
+      "motion_detection": false
+    }
   }
 }
 ```
@@ -48,34 +132,146 @@ Takes a photo with `termux-camera-photo`, runs YOLOv8 ONNX inference, prints res
 uv run camera-yolo --server --server-port 5000
 ```
 
-Endpoints: `/detect`, `/status`, `/log`, `/config`, `/stream` (see [SKILL.md](SKILL.md)).
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET/POST | `/detect` | 触发一次检测，返回 JSON |
+| GET | `/detect?format=summary` | 仅返回文本摘要 |
+| GET | `/status` | 健康检查 + 运行统计 |
+| GET | `/log?limit=50` | 最近 N 条 CSV 日志 |
+| GET | `/config` | 查看当前配置 |
+| POST | `/config` | 运行时修改配置 (`{"confidence": 0.6, "classes": ["person"]}`) |
+| GET | `/stream` | MJPEG 实时预览 (需配置 IP Webcam) |
 
-## Power Optimization
+## 实时预览
 
-- **Motion pre-filter** (`--motion`): Skips YOLO inference when scene is static — saves ~90% power in monitoring mode
-- **Adaptive interval**: 1s when objects detected, 5s normally, 30s when no motion
-- **Class filtering** (`--classes`): Only run detection on target classes
-
-## Real-time Preview
-
-For 15+ FPS live view, install "IP Webcam" from Play Store, then:
+安装 "IP Webcam" App (Play Store)，启动后配置：
 ```bash
-export IP_WEBCAM_URL=http://192.168.1.100:8080/shot.jpg
-uv run camera-yolo --server --capture-backend ipwebcam
+uv run camera-yolo --server --capture-backend ipwebcam --ip-webcam-url http://192.168.1.100:8080/shot.jpg
 ```
-Visit `http://localhost:5000/stream` for MJPEG live view.
+浏览器访问 `http://localhost:5000/stream` 查看 MJPEG 实时画面。
 
-## Model
+## 功耗优化
 
-- Default: `yolov8n.onnx` in project root
-- Auto-download: set `MODEL_DOWNLOAD_URL` to a raw ONNX URL
-- Custom models: any YOLOv8 ONNX export works
+- **运动预过滤** (`--motion`)：帧差分判断场景变化，静态时跳过 YOLO 推理 — 监控模式下节省 ~90% 功耗
+- **自适应间隔**：检测到物体→1s，正常→5s，无运动→30s
+- **类过滤** (`--classes`)：使用自定义模型仅检测目标类别，减少无关计算
 
-## Configuration
+## 模型
 
-Priority: CLI flags > environment variables > TOML config file > defaults.
+- 默认使用 `yolov8n.onnx` (项目根目录)
+- 支持自动下载：设置 `MODEL_DOWNLOAD_URL` 或 `--model-download-url`
+- 输入精度 (float16/float32) 自动检测 — 任何 YOLOv8 ONNX 导出模型均可使用
+- 需要自定义检测内容时，训练自己的 YOLOv8 模型导出 ONNX 即可
 
-See [SKILL.md](SKILL.md) for full configuration reference.
+## 配置文件
+
+除 CLI 标志和环境变量外，还支持 TOML 配置文件 (`camera_yolo_logger.toml`)：
+
+```toml
+[capture]
+cmd = "termux-camera-photo"
+path = "Image/camera_yolo_temp.jpg"
+timeout = 30
+retry = 3
+backend = "termux"
+
+[detection]
+model = "yolov8n.onnx"
+conf_threshold = 0.45
+iou_threshold = 0.5
+classes = ["person", "car"]
+
+[motion]
+enabled = true
+threshold = 0.05
+
+[monitor]
+interval = 5.0
+archive = true
+archive_dir = "captures"
+
+[webhook]
+url = "http://localhost:8080/notify"
+trigger_classes = ["person"]
+
+[server]
+host = "0.0.0.0"
+port = 5000
+```
+
+配置文件搜索路径：`./camera_yolo_logger.toml` → `~/.config/camera-yolo-logger.toml`
+
+优先级: **CLI 参数 > 环境变量 > TOML 配置文件 > 默认值**
+
+### 向后兼容的环境变量
+
+```bash
+export CAMERA_PHOTO_CMD=termux-camera-photo
+export DETECT_CONF_THRESH=0.45
+export DETECT_IOU_THRESH=0.5
+export CAMERA_MODEL_PATH=yolov8n.onnx
+export MODEL_DOWNLOAD_URL="https://huggingface.co/.../yolov8n.onnx"
+export CLASS_FILTER=person,car,dog
+export MOTION_ENABLED=true
+export WEBBOOK_URL=http://localhost:8080/notify
+export WEBBOOK_TRIGGER_CLASSES=person,car
+```
+
+## 项目结构
+
+```
+termux-camera-yolo/
+├── camera_yolo_logger/
+│   ├── __init__.py     # 版本号
+│   ├── __main__.py     # python -m 入口
+│   ├── schemas.py      # 数据结构 (BBox, Detection, DetectionResult, CaptureResult)
+│   ├── config.py       # 配置管理 (Settings + CLI/env/TOML 分层加载)
+│   ├── utils.py        # 工具 (FileLock 并发锁, timed 装饰器)
+│   ├── capture.py      # 拍照 (termux-camera-photo / IP Webcam, 超时重试)
+│   ├── detect.py       # YOLO ONNX 推理 (Detector 类, NMS, 数字变焦)
+│   ├── motion.py       # 运动检测预过滤器 (帧差分 MSE)
+│   ├── monitor.py      # 连续监控循环 (自适应间隔, 存档)
+│   ├── notify.py       # Webhook 通知
+│   ├── server.py       # Flask HTTP API
+│   └── main.py         # CLI 入口 (argparse, 模式分发)
+├── tests/
+│   ├── conftest.py         # 共享 fixtures
+│   ├── test_schemas.py     # 数据结构测试 (17)
+│   ├── test_config.py      # 配置管理测试 (20)
+│   ├── test_utils.py       # 工具测试 (9)
+│   ├── test_capture.py     # 拍照测试 (11)
+│   ├── test_detect.py      # 检测测试 (21)
+│   ├── test_motion.py      # 运动检测测试 (8)
+│   ├── test_main.py        # CLI 入口测试 (14)
+│   ├── test_monitor.py     # 监控测试 (16)
+│   ├── test_notify.py      # 通知测试 (9)
+│   └── test_server.py      # HTTP API 测试 (10)
+├── camera_yolo_logger.toml  # 示例配置文件
+├── pyproject.toml           # 项目元数据 + 依赖 + pytest 配置
+├── requirements.txt
+├── SKILL.md                 # AI Agent 集成指南
+└── README.md
+```
+
+## 测试
+
+```bash
+# 运行全部 135 项测试
+uv run pytest tests/ -v
+
+# 或在安装了 pytest 的环境中
+python3 -m pytest tests/ -v
+
+# 运行单个模块
+uv run pytest tests/test_detect.py -v
+```
+
+## 环境要求
+
+- Termux (Android) + `termux-api` 包
+- Python ≥ 3.10
+- 系统依赖（通过 `pkg` 安装）：`opencv-python`, `onnxruntime`（可选，uv 也可安装）
+- ONNX 模型文件 (默认 `yolov8n.onnx`)
 
 ## 友链
 
