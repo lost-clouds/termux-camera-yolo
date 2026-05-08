@@ -1,0 +1,73 @@
+# Camera YOLO Logger — 配置文件
+# 优先级: CLI 参数 > 环境变量 > 此文件 > 默认值
+# 将此文件放在项目根目录或 ~/.config/camera-yolo-logger.toml
+
+[capture]
+# 拍照命令 (默认: termux-camera-photo)
+cmd = "termux-camera-photo"
+# 照片保存路径
+path = "Image/camera_yolo_temp.jpg"
+# 拍照超时 (秒)
+timeout = 30
+# 重试次数
+retry = 3
+# 重试延迟基数 (秒), 指数退避: delay * 2^(attempt-1)
+retry_delay = 1.0
+# 拍照后端: "termux" | "ipwebcam" | "url"
+backend = "termux"
+# IP Webcam 抓帧 URL (backend = "ipwebcam" 时需要)
+ip_webcam_url = ""
+
+[detection]
+# ONNX 模型路径
+model = "yolov8n.onnx"
+# 模型下载 URL (首次运行时自动下载)
+model_download_url = ""
+# 置信度阈值 (0.0 ~ 1.0)
+conf_threshold = 0.45
+# NMS IoU 阈值 (0.0 ~ 1.0)
+iou_threshold = 0.5
+# 类过滤 (只检测这些类别, 留空 = 全部)
+classes = []
+
+[output]
+# CSV 日志文件
+log_file = "camera_log.csv"
+# 输出格式: "text" | "json"
+format = "text"
+# 详细日志
+verbose = false
+
+[motion]
+# 启用运动检测预过滤 (节省功耗)
+enabled = false
+# 运动检测灵敏度 (MSE, 越小越敏感)
+threshold = 0.05
+# 灰度缩放尺寸 (像素, 越小越快)
+resize = 160
+
+[monitor]
+# 默认监控间隔 (秒)
+interval = 5.0
+# 检测到物体时的最小间隔 (秒)
+interval_min = 1.0
+# 无运动时的最大间隔 (秒)
+interval_max = 30.0
+# 检测到物体时存档照片
+archive = false
+# 存档目录
+archive_dir = "archive"
+
+[webhook]
+# Webhook URL (检测到触发类时 POST JSON)
+url = ""
+# 触发 Webhook 的目标类别 (留空 = 任何物体都触发)
+trigger_classes = []
+# 通知冷却时间 (秒)
+cooldown = 10.0
+
+[server]
+# HTTP 服务器监听地址
+host = "127.0.0.1"
+# HTTP 服务器端口
+port = 5000

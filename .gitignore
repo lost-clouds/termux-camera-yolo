@@ -9,3 +9,9 @@ report_*.txt
 *.egg-info/
 dist/
 build/
+Image/
+archive/
+captures/
+*.lock
+.pytest_cache/
+tests/__pycache__/

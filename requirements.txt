@@ -2,4 +2,4 @@
 # Install: uv pip install -r requirements.txt
 numpy>=1.21
 pillow>=10.0
-onnxruntime>=1.15; sys_platform != "android"
+onnxruntime>=1.15
