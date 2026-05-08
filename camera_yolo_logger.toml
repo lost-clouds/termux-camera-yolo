@@ -37,6 +37,8 @@ log_file = "camera_log.csv"
 format = "text"
 # 详细日志
 verbose = false
+# CSV 最大记录条数 (超出后自动裁剪旧记录, 默认 1000)
+max_records = 1000
 
 [motion]
 # 启用运动检测预过滤 (节省功耗)

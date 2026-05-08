@@ -11,28 +11,37 @@
 ```bash
 cd termux-camera-yolo
 uv sync
-uv run camera-yolo
+bash install.sh     # 创建全局命令 ~/.local/bin/camera-yolo
+camera-yolo
 ```
 
 拍照 → YOLO 检测 → 输出结果到 stdout + `camera_log.csv`。最新照片保留在 `Image/camera_yolo_temp.jpg`。
 
 如果你的 Termux 已通过 `pkg` 安装了 numpy/pillow/onnxruntime：
 ```bash
-uv venv --system-site-packages .venv && uv sync
+uv venv --system-site-packages .venv && uv sync && bash install.sh
 ```
+
+**install.sh** 在 `~/.local/bin/camera-yolo` 创建 shell wrapper，此后 `camera-yolo` 在任何目录下都可直接调用，无需 `uv run`。
 
 ## Modes
 
 | 模式 | 命令 | 说明 |
 |------|------|------|
-| 一次性 text | `uv run camera-yolo` | 基础用法 (向后兼容) |
-| 一次性 JSON | `uv run camera-yolo --json` | 结构化输出，供 AI Agent 使用 |
-| 类过滤 | `uv run camera-yolo --json --classes person car dog` | 仅检测指定类别 |
-| 运动预过滤 | `uv run camera-yolo --json --motion` | 静态场景跳过 YOLO 推理，降低功耗 |
-| 连续监控 | `uv run camera-yolo --monitor --json --motion --archive` | 持续运行，检测到物体自动存档 |
-| HTTP 服务器 | `uv run camera-yolo --server --server-port 5000` | 提供 REST API 供外部调用 |
+| 一次性 text | `camera-yolo` | 基础用法 (向后兼容) |
+| 一次性 JSON | `camera-yolo --json` | 结构化输出，供 AI Agent 使用 |
+| 类过滤 | `camera-yolo --json --classes person car dog` | 仅检测指定类别 |
+| 运动预过滤 | `camera-yolo --json --motion` | 静态场景跳过 YOLO 推理，降低功耗 |
+| 连续监控 | `camera-yolo --monitor --json --motion --archive` | 持续运行，检测到物体自动存档 |
+| HTTP 服务器 | `camera-yolo --server --server-port 5000` | 提供 REST API 供外部调用 |
 
 ## CLI Flags
+
+### 通用选项
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--config`, `-c` | — | TOML 配置文件路径 |
+| `--setup` | — | 交互式配置向导（首次使用推荐） |
 
 ### 拍照选项
 | 标志 | 默认值 | 说明 |
@@ -58,6 +67,7 @@ uv venv --system-site-packages .venv && uv sync
 |------|--------|------|
 | `--json` | `false` | 启用 JSON 格式输出 |
 | `--log-file` | `camera_log.csv` | CSV 日志路径 |
+| `--csv-max-records` | `1000` | CSV 最大记录条数，超出后自动裁剪 |
 | `--verbose`, `-v` | `false` | 详细输出到 stderr |
 
 ### 运动检测 (功耗优化)
@@ -129,7 +139,7 @@ uv venv --system-site-packages .venv && uv sync
 ## HTTP API
 
 ```bash
-uv run camera-yolo --server --server-port 5000
+camera-yolo --server --server-port 5000
 ```
 
 | 方法 | 端点 | 说明 |
@@ -146,7 +156,7 @@ uv run camera-yolo --server --server-port 5000
 
 安装 "IP Webcam" App (Play Store)，启动后配置：
 ```bash
-uv run camera-yolo --server --capture-backend ipwebcam --ip-webcam-url http://192.168.1.100:8080/shot.jpg
+camera-yolo --server --capture-backend ipwebcam --ip-webcam-url http://192.168.1.100:8080/shot.jpg
 ```
 浏览器访问 `http://localhost:5000/stream` 查看 MJPEG 实时画面。
 
@@ -162,6 +172,17 @@ uv run camera-yolo --server --capture-backend ipwebcam --ip-webcam-url http://19
 - 支持自动下载：设置 `MODEL_DOWNLOAD_URL` 或 `--model-download-url`
 - 输入精度 (float16/float32) 自动检测 — 任何 YOLOv8 ONNX 导出模型均可使用
 - 需要自定义检测内容时，训练自己的 YOLOv8 模型导出 ONNX 即可
+
+## 首次运行
+
+首次执行 `camera-yolo` 时，会自动在项目目录生成默认配置文件 `camera_yolo_logger.toml`。照片默认保存在项目目录下的 `Image/` 文件夹。
+
+如需自定义设置，可运行交互式配置向导：
+```bash
+camera-yolo --setup
+```
+
+向导会引导你设置：照片保存路径、CSV 最大记录数（默认 1000，超出自动裁剪）、检测类别、置信度阈值。
 
 ## 配置文件
 
@@ -180,6 +201,10 @@ model = "yolov8n.onnx"
 conf_threshold = 0.45
 iou_threshold = 0.5
 classes = ["person", "car"]
+
+[output]
+log_file = "camera_log.csv"
+max_records = 1000
 
 [motion]
 enabled = true
@@ -227,6 +252,7 @@ termux-camera-yolo/
 │   ├── schemas.py      # 数据结构 (BBox, Detection, DetectionResult, CaptureResult)
 │   ├── config.py       # 配置管理 (Settings + CLI/env/TOML 分层加载)
 │   ├── utils.py        # 工具 (FileLock 并发锁, timed 装饰器)
+│   ├── setup.py        # 首次运行配置 (自动生成 TOML, --setup 向导, CSV 裁剪)
 │   ├── capture.py      # 拍照 (termux-camera-photo / IP Webcam, 超时重试)
 │   ├── detect.py       # YOLO ONNX 推理 (Detector 类, NMS, 数字变焦)
 │   ├── motion.py       # 运动检测预过滤器 (帧差分 MSE)
@@ -246,6 +272,7 @@ termux-camera-yolo/
 │   ├── test_monitor.py     # 监控测试 (16)
 │   ├── test_notify.py      # 通知测试 (9)
 │   └── test_server.py      # HTTP API 测试 (10)
+├── install.sh              # 一键安装脚本 (创建全局 camera-yolo 命令)
 ├── camera_yolo_logger.toml  # 示例配置文件
 ├── pyproject.toml           # 项目元数据 + 依赖 + pytest 配置
 ├── requirements.txt

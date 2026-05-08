@@ -178,6 +178,7 @@ class Monitor:
 
     def _log_to_csv(self, detection: DetectionResult) -> None:
         import csv
+        from camera_yolo_logger.setup import trim_csv
         need_header = not self._log_path.exists() or self._log_path.stat().st_size == 0
         try:
             with open(self._log_path, "a", newline="") as f:
@@ -185,6 +186,7 @@ class Monitor:
                 if need_header:
                     w.writerow(["timestamp", "detected"])
                 w.writerow([self._now_str(), detection.summary])
+            trim_csv(self._log_path, self.settings.csv_max_records)
         except OSError:
             pass
 

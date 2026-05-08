@@ -54,6 +54,7 @@ class Settings:
     log_file: str = DEFAULT_LOG_FILE
     output_format: str = "text"
     verbose: bool = False
+    csv_max_records: int = 1000
 
     # Motion pre-filter
     motion_detection: bool = False
@@ -156,9 +157,9 @@ def _toml_to_dict(path: str | None) -> dict[str, Any]:
                         "classes": "class_filter"},
         },
         "output": {
-            "fields": ["log_file", "output_format", "verbose"],
+            "fields": ["log_file", "output_format", "verbose", "csv_max_records"],
             "aliases": {"log_file": "log_file", "format": "output_format",
-                        "verbose": "verbose"},
+                        "verbose": "verbose", "max_records": "csv_max_records"},
         },
         "motion": {
             "fields": ["motion_detection", "motion_threshold", "motion_resize"],
@@ -220,7 +221,7 @@ def _cli_to_dict(args: Namespace | None) -> dict[str, Any]:
         "photo_cmd", "photo_path", "capture_timeout", "capture_retry",
         "capture_retry_delay", "capture_backend", "ip_webcam_url",
         "model_path", "model_download_url", "conf_thresh", "iou_thresh",
-        "class_filter", "log_file", "output_format", "verbose",
+        "class_filter", "log_file", "output_format", "verbose", "csv_max_records",
         "motion_detection", "motion_threshold", "motion_resize",
         "monitor", "monitor_interval", "monitor_interval_min", "monitor_interval_max",
         "archive_enabled", "archive_dir",

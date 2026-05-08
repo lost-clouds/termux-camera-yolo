@@ -4,7 +4,7 @@ Termux 摄像头 → YOLOv8 物体检测 → CSV / JSON / Webhook / HTTP API。
 
 ## Quick Start
 ```bash
-uv run camera-yolo
+camera-yolo
 ```
 拍照 → YOLO 识别 → 输出到 stdout + CSV 日志。保留最新照片在 `Image/camera_yolo_temp.jpg`。
 
@@ -12,30 +12,42 @@ uv run camera-yolo
 
 ### 1. Installation (one-time)
 ```bash
-cd camera_yolo_logger
+# 克隆仓库
+git clone <repo-url> termux-camera-yolo
+cd termux-camera-yolo
+
+# 创建 venv 并安装依赖
 uv sync
+
+# 安装全局命令 (创建 ~/.local/bin/camera-yolo wrapper)
+bash install.sh
 ```
-Termux 环境已通过 pkg 提供 numpy/pillow/onnxruntime 时:
+
+如果 Termux 通过 pkg 安装了 numpy/pillow/onnxruntime，先创建使用系统包的 venv:
 ```bash
-uv venv --system-site-packages .venv && uv sync
+uv venv --system-site-packages .venv && uv sync && bash install.sh
 ```
+
+**install.sh 做了什么**：在 `~/.local/bin/camera-yolo` 创建 shell wrapper，自动 cd 到项目目录并执行 `uv run camera-yolo "$@"`。安装后 `camera-yolo` 全局可用，**无需在项目目录内运行**。
+
+安装后若提示 command not found，执行 `source ~/.bashrc` 或 `source ~/.zshrc`。
 
 ### 2. One-shot Detection
 ```bash
 # 基础 (向后兼容, text 输出)
-uv run camera-yolo
+camera-yolo
 
 # JSON 输出 (推荐 AI Agent 使用)
-uv run camera-yolo --json
+camera-yolo --json
 
 # 类过滤 — 仅检测指定类别
-uv run camera-yolo --json --classes person car dog
+camera-yolo --json --classes person car dog
 
 # 运动预过滤 — 静态场景跳过 YOLO, 大幅节省功耗
-uv run camera-yolo --json --motion
+camera-yolo --json --motion
 
 # 完整示例
-uv run camera-yolo --json --classes person --confidence 0.5 --motion
+camera-yolo --json --classes person --confidence 0.5 --motion
 ```
 
 ### 3. JSON Output Format
@@ -75,13 +87,13 @@ uv run camera-yolo --json --classes person --confidence 0.5 --motion
 ### 4. Continuous Monitoring Mode
 ```bash
 # 基础监控 (每 5s 检测一次)
-uv run camera-yolo --monitor --json
+camera-yolo --monitor --json
 
 # 完整功耗优化: 运动检测 + 自适应间隔 + 存档
-uv run camera-yolo --monitor --json --motion --archive --archive-dir captures
+camera-yolo --monitor --json --motion --archive --archive-dir captures
 
 # 快速监控 + Webhook 通知
-uv run camera-yolo --monitor --json \
+camera-yolo --monitor --json \
   --interval 2.0 --interval-min 1.0 \
   --webhook-url http://localhost:8080/notify \
   --webhook-trigger-classes person
@@ -94,7 +106,7 @@ uv run camera-yolo --monitor --json \
 
 ### 5. HTTP API Server (for AI Agents)
 ```bash
-uv run camera-yolo --server --server-port 5000
+camera-yolo --server --server-port 5000
 ```
 
 API 端点:

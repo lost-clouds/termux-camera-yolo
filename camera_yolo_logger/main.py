@@ -3,6 +3,7 @@
 模式:
     camera-yolo                   一次性检测，text 输出（向后兼容）
     camera-yolo --json            一次性检测，JSON 输出
+    camera-yolo --setup           交互式配置向导
     camera-yolo --monitor         连续监控模式
     camera-yolo --server          启动 HTTP API 服务器
 """
@@ -13,7 +14,6 @@ import csv
 import json
 import os
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +21,7 @@ from camera_yolo_logger.config import Settings, load_settings
 from camera_yolo_logger.capture import capture, capture_from_url
 from camera_yolo_logger.detect import Detector
 from camera_yolo_logger.schemas import DetectionResult, CaptureResult
+from camera_yolo_logger.setup import ensure_first_run, trim_csv, run_setup_wizard
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,8 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="camera-yolo",
         description="Termux 摄像头 YOLO 物体检测 — 拍照 → 识别 → 记录",
     )
-    # 配置文件
+    # 配置文件 / 设置
     p.add_argument("--config", "-c", help="TOML 配置文件路径")
+    p.add_argument("--setup", action="store_true", help="交互式配置向导")
 
     # 拍照
     cap = p.add_argument_group("拍照")
@@ -53,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     out = p.add_argument_group("输出")
     out.add_argument("--json", dest="json_output", action="store_true", help="JSON 格式输出")
     out.add_argument("--log-file", help="CSV 日志文件路径")
+    out.add_argument("--csv-max-records", type=int, help="CSV 最大记录条数 (默认: 1000)")
     out.add_argument("--verbose", "-v", action="store_true", help="详细输出到 stderr")
 
     # 运动检测
@@ -116,6 +119,15 @@ def _log_to_csv(ts: str, description: str, log_file: Path) -> None:
         w.writerow([ts, description])
 
 
+def _log_and_trim(ts: str, description: str, settings: Settings) -> None:
+    """写入 CSV 后自动裁剪超出 max_records 的旧记录。"""
+    log_path = Path(settings.log_file)
+    _log_to_csv(ts, description, log_path)
+    removed = trim_csv(log_path, settings.csv_max_records)
+    if removed > 0 and settings.verbose:
+        print(f"CSV 裁剪: 删除 {removed} 条旧记录", file=sys.stderr)
+
+
 # ── 一次性检测 ─────────────────────────────────────────────
 
 
@@ -136,7 +148,7 @@ def run_once(settings: Settings) -> int:
                                DetectionResult(success=False, objects=[], summary=err, error=err)))
         else:
             print(f"{ts},拍照失败: {err}")
-        _log_to_csv(ts, f"拍照失败: {err}", Path(settings.log_file))
+        _log_and_trim(ts, f"拍照失败: {err}", settings)
         return 1
 
     # 2. 运动预过滤
@@ -148,7 +160,7 @@ def run_once(settings: Settings) -> int:
                 print(json.dumps({"timestamp": ts, "status": "no_motion"}, ensure_ascii=False))
             else:
                 print(f"{ts},无运动")
-            _log_to_csv(ts, "无运动", Path(settings.log_file))
+            _log_and_trim(ts, "无运动", settings)
             return 0
         md.update(str(cap_result.path))
 
@@ -162,7 +174,7 @@ def run_once(settings: Settings) -> int:
         print(_format_json(ts, cap_result, det_result))
     else:
         print(_format_text(ts, det_result))
-    _log_to_csv(ts, det_result.summary, Path(settings.log_file))
+    _log_and_trim(ts, det_result.summary, settings)
 
     return 0
 
@@ -172,12 +184,23 @@ def run_once(settings: Settings) -> int:
 
 def main() -> int:
     args = build_parser().parse_args()
+
+    # --setup 交互式配置向导
+    if args.setup:
+        project_dir = Path(__file__).resolve().parent.parent
+        run_setup_wizard(project_dir)
+        return 0
+
     config_path = args.config_file if hasattr(args, "config_file") else None
     settings = load_settings(config_path=config_path, cli_args=args)
 
-    # 兼容旧版环境变量：如果 CAMERA_LOG_FILE 被设置但 CLI 没有覆盖
+    # 兼容旧版环境变量
     if os.environ.get("CAMERA_LOG_FILE") and not getattr(args, "log_file", None):
         settings.log_file = os.environ["CAMERA_LOG_FILE"]
+
+    # 首次运行：自动生成默认配置
+    project_dir = Path(__file__).resolve().parent.parent
+    settings = ensure_first_run(settings, project_dir)
 
     if settings.verbose:
         import logging
