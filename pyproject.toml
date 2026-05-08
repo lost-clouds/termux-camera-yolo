@@ -5,7 +5,7 @@ description = "Termux 专用 YOLO 物体检测拍照工具 — CLI / Monitor / H
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.21",
-    "onnxruntime>=1.15",
+    "onnxruntime>=1.15; sys_platform != 'android'",
     "pillow>=10.0",
 ]
 
