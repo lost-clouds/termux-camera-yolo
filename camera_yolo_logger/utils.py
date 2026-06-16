@@ -1,11 +1,16 @@
-"""共享工具 — FileLock 进程间锁, timed 装饰器。"""
+"""共享工具 — FileLock 进程间锁, 时间戳, CSV 日志。"""
 from __future__ import annotations
 
+import csv
 import fcntl
-import functools
+import logging
 import os
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class FileLock:
@@ -55,12 +60,83 @@ class FileLock:
         return False
 
 
-def timed(func):
-    """装饰器：返回 (result, elapsed_ms) 元组。"""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        t0 = time.perf_counter()
-        result = func(*args, **kwargs)
-        elapsed = (time.perf_counter() - t0) * 1000
-        return result, elapsed
-    return wrapper
+# ── 时间戳 ──────────────────────────────────────────────
+
+
+def utc_now_str(fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """返回当前 UTC 时间格式化字符串（CSV 日志用）。"""
+    return datetime.now(timezone.utc).strftime(fmt)
+
+
+def utc_now_iso() -> str:
+    """返回当前 UTC 时间 ISO 8601 字符串。"""
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ── CSV 日志 ────────────────────────────────────────────
+
+
+def log_detection_to_csv(
+    ts: str,
+    description: str,
+    log_path: Path,
+    max_records: int = 0,
+    verbose: bool = False,
+) -> None:
+    """追加一条检测记录到 CSV 日志文件。
+
+    Args:
+        ts: 时间戳字符串。
+        description: 检测摘要文本。
+        log_path: CSV 文件路径。
+        max_records: 写入后裁剪到该条数（0=不裁剪）。
+        verbose: 裁剪时输出信息到 stderr。
+    """
+    need_header = not log_path.exists() or log_path.stat().st_size == 0
+    with open(log_path, "a", newline="") as f:
+        w = csv.writer(f)
+        if need_header:
+            w.writerow(["timestamp", "detected"])
+        w.writerow([ts, description])
+    if max_records > 0:
+        removed = trim_csv(log_path, max_records)
+        if removed > 0 and verbose:
+            print(f"CSV 裁剪: 删除 {removed} 条旧记录", file=sys.stderr)
+
+
+def trim_csv(log_path: Path, max_records: int) -> int:
+    """裁剪 CSV 文件，保留 header + 最近 max_records 条记录。
+
+    Returns:
+        删除的记录条数
+    """
+    if max_records <= 0:
+        return 0
+    if not log_path.exists():
+        return 0
+
+    try:
+        with open(log_path, "r", newline="") as f:
+            rows = list(csv.reader(f))
+    except Exception:
+        logger.warning("Failed to read CSV for trimming: %s", log_path)
+        return 0
+
+    if len(rows) <= 1:  # 只有 header 或空
+        return 0
+
+    header = rows[0]
+    data = rows[1:]
+
+    if len(data) <= max_records:
+        return 0
+
+    trimmed = data[-max_records:]
+    removed = len(data) - len(trimmed)
+
+    with open(log_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(trimmed)
+
+    return removed

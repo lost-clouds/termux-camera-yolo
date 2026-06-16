@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from camera_yolo_logger.detect import COCO_80, Detector, _download_model, _nms, detect
+from camera_yolo_logger.detect import COCO_80, Detector, _download_model, _nms
 from camera_yolo_logger.schemas import BBox, Detection, DetectionResult
 
 
@@ -165,15 +165,6 @@ class TestDetector:
             summary = detector.detect_summary(str(sample_image))
         assert isinstance(summary, str)
         assert len(summary) > 0
-
-
-class TestModuleLevelDetect:
-    def test_returns_string_backwards_compat(self, tmp_dir, sample_image):
-        """模块级 detect() 返回字符串（向后兼容）。"""
-        with patch("camera_yolo_logger.detect.Detector._get_model_path") as mock_path:
-            mock_path.return_value = Path("/nonexistent/model.onnx")
-            result = detect(str(sample_image))
-        assert isinstance(result, str)
 
 
 # 需要 mock import

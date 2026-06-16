@@ -1,7 +1,6 @@
-"""首次运行配置 — 自动生成默认配置文件、交互式设置向导、CSV 裁剪。"""
+"""首次运行配置 — 自动生成默认配置文件、交互式设置向导。"""
 from __future__ import annotations
 
-import csv
 import os
 import sys
 from pathlib import Path
@@ -142,43 +141,6 @@ def run_setup_wizard(project_dir: Path | None = None) -> Settings:
 
     from camera_yolo_logger.config import load_settings
     return load_settings()
-
-
-def trim_csv(log_path: Path, max_records: int) -> int:
-    """裁剪 CSV 文件，保留 header + 最近 max_records 条记录。
-
-    Returns:
-        删除的记录条数
-    """
-    if max_records <= 0:
-        return 0
-    if not log_path.exists():
-        return 0
-
-    try:
-        with open(log_path, "r", newline="") as f:
-            rows = list(csv.reader(f))
-    except Exception:
-        return 0
-
-    if len(rows) <= 1:  # 只有 header 或空
-        return 0
-
-    header = rows[0]
-    data = rows[1:]
-
-    if len(data) <= max_records:
-        return 0
-
-    trimmed = data[-max_records:]
-    removed = len(data) - len(trimmed)
-
-    with open(log_path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        w.writerows(trimmed)
-
-    return removed
 
 
 def ensure_first_run(settings: Settings, project_dir: Path | None = None) -> Settings:

@@ -1,12 +1,11 @@
-"""测试 utils.py — FileLock, timed 装饰器。"""
+"""测试 utils.py — FileLock。"""
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 import pytest
 
-from camera_yolo_logger.utils import FileLock, timed
+from camera_yolo_logger.utils import FileLock
 
 
 class TestFileLock:
@@ -54,31 +53,3 @@ class TestFileLock:
         lock.acquire()
         lock.release()
         lock.release()  # 不应抛出异常
-
-
-class TestTimed:
-    def test_returns_result_and_elapsed(self):
-        @timed
-        def fast():
-            return 42
-
-        result, elapsed = fast()
-        assert result == 42
-        assert elapsed >= 0
-
-    def test_elapsed_increases_with_sleep(self):
-        @timed
-        def slow():
-            time.sleep(0.05)
-            return "done"
-
-        result, elapsed = slow()
-        assert result == "done"
-        assert elapsed >= 40  # milliseconds
-
-    def test_preserves_function_name(self):
-        @timed
-        def my_func():
-            pass
-
-        assert my_func.__name__ == "my_func"

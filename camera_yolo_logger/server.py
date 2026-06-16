@@ -10,7 +10,7 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, request
 
 from camera_yolo_logger.config import Settings
-from camera_yolo_logger.capture import capture, capture_from_url
+from camera_yolo_logger.capture import capture_with_backend
 from camera_yolo_logger.detect import Detector
 
 _start_time = time.time()
@@ -23,10 +23,7 @@ def create_app(settings: Settings) -> Flask:
     @app.route("/detect", methods=["GET", "POST"])
     def detect_endpoint():
         """触发一次拍照 + 检测，返回 JSON 结果。"""
-        if settings.capture_backend in ("ipwebcam", "url") and settings.ip_webcam_url:
-            cap_result = capture_from_url(settings.ip_webcam_url, settings)
-        else:
-            cap_result = capture(settings)
+        cap_result = capture_with_backend(settings)
 
         if not cap_result.success:
             return jsonify({"error": cap_result.error, "success": False}), 500
@@ -71,8 +68,9 @@ def create_app(settings: Settings) -> Flask:
                 for row in reader:
                     entries.append(row)
             entries = entries[-limit:]
-        except Exception:
-            pass
+        except (OSError, csv.Error) as exc:
+            import logging
+            logging.getLogger(__name__).warning("Failed to read CSV log: %s", exc)
         return jsonify({"entries": entries, "total": len(entries)})
 
     @app.route("/config", methods=["GET"])
@@ -105,12 +103,12 @@ def create_app(settings: Settings) -> Flask:
         def generate():
             from urllib.request import urlopen
             try:
-                resp = urlopen(stream_url, timeout=5)
-                while True:
-                    chunk = resp.read(4096)
-                    if not chunk:
-                        break
-                    yield chunk
+                with urlopen(stream_url, timeout=5) as resp:
+                    while True:
+                        chunk = resp.read(4096)
+                        if not chunk:
+                            break
+                        yield chunk
             except Exception as exc:
                 yield f"data: Stream error: {exc}\n\n".encode()
 

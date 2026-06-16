@@ -105,7 +105,9 @@ def capture_from_url(url: str, settings: Settings | None = None) -> CaptureResul
                              elapsed_ms=(time.perf_counter() - t0) * 1000)
 
 
-def cleanup_photo(settings: Settings | None = None) -> None:
-    """删除最新照片（供需要清理的场景使用）。"""
-    s = settings or Settings()
-    Path(s.photo_path).unlink(missing_ok=True)
+def capture_with_backend(settings: Settings) -> CaptureResult:
+    """根据 settings.capture_backend 选择拍照方式。"""
+    if settings.capture_backend in ("ipwebcam", "url") and settings.ip_webcam_url:
+        return capture_from_url(settings.ip_webcam_url, settings)
+    return capture(settings)
+

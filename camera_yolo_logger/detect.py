@@ -1,4 +1,4 @@
-"""YOLO检测模块 — ONNX Runtime 推理 + Detector 类 + 数字裁剪放大。"""
+"""YOLO检测模块 — ONNX Runtime 推理 + Detector 类。"""
 from __future__ import annotations
 
 import shutil
@@ -70,7 +70,7 @@ def _nms(boxes, scores, conf_thresh, iou_thresh, class_ids=None):
 
 
 class Detector:
-    """YOLOv8 ONNX 检测器 — 支持类过滤、数字裁剪放大、模型自动下载。
+    """YOLOv8 ONNX 检测器 — 支持类过滤、模型自动下载。
 
     用法:
         d = Detector(model_path="yolov8n.onnx", class_filter=["person", "car"])
@@ -78,9 +78,6 @@ class Detector:
         print(result.summary)        # "2个人, 1辆车"
         print(result.to_json())      # 结构化 JSON
     """
-
-    _session_cache: dict[Path, "ort.InferenceSession"] = {}
-    _input_dtype: np.dtype | None = None
 
     def __init__(
         self,
@@ -95,6 +92,8 @@ class Detector:
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
         self.class_filter = class_filter
+        self._session_cache: dict[Path, "ort.InferenceSession"] = {}
+        self._input_dtype: np.dtype | None = None
 
     # ── 模型加载 ─────────────────────────────────────────
 
@@ -113,19 +112,19 @@ class Detector:
             try:
                 t = sess.get_inputs()[0].type.lower()
                 if "float16" in t:
-                    self.__class__._input_dtype = np.float16
+                    self._input_dtype = np.float16
                 elif "float" in t:
-                    self.__class__._input_dtype = np.float32
+                    self._input_dtype = np.float32
                 elif "double" in t:
-                    self.__class__._input_dtype = np.float64
+                    self._input_dtype = np.float64
                 elif "int32" in t:
-                    self.__class__._input_dtype = np.int32
+                    self._input_dtype = np.int32
                 elif "uint8" in t:
-                    self.__class__._input_dtype = np.uint8
+                    self._input_dtype = np.uint8
                 else:
-                    self.__class__._input_dtype = np.float32
+                    self._input_dtype = np.float32
             except Exception:
-                self.__class__._input_dtype = np.float32
+                self._input_dtype = np.float32
         return self._session_cache[model_path]
 
     # ── 推理 ─────────────────────────────────────────────
@@ -237,59 +236,6 @@ class Detector:
         """向后兼容：返回中文摘要字符串。"""
         return self.detect(image_path).summary
 
-    def detect_crop(
-        self, image_path: str | Path, target_class: str = "person", margin: float = 0.2,
-    ) -> DetectionResult:
-        """两阶段检测实现「数字对焦放大」:
-
-        1. 全帧检测 → 找到最大目标物体
-        2. 裁剪到目标区域 → 二次检测获得更高精度结果
-        """
-        t0 = time.perf_counter()
-
-        # 阶段 1：全帧检测
-        full_result = self.detect(image_path)
-        if not full_result.objects:
-            full_result.elapsed_ms = (time.perf_counter() - t0) * 1000
-            return full_result
-
-        # 找到目标类别中面积最大的检测结果
-        targets = [o for o in full_result.objects if o.class_name == target_class]
-        if not targets:
-            targets = full_result.objects  # 回退到所有检测
-        target = max(targets, key=lambda o: o.bbox.area)
-
-        # 阶段 2：裁剪放大
-        try:
-            from PIL import Image
-            img = Image.open(str(image_path))
-            w, h = img.size
-            mx = int(w * margin)
-            my = int(h * margin)
-            crop_box = (
-                max(0, target.bbox.x1 - mx),
-                max(0, target.bbox.y1 - my),
-                min(w, target.bbox.x2 + mx),
-                min(h, target.bbox.y2 + my),
-            )
-            if crop_box[2] <= crop_box[0] or crop_box[3] <= crop_box[1]:
-                full_result.elapsed_ms = (time.perf_counter() - t0) * 1000
-                return full_result
-
-            cropped = img.crop(crop_box)
-            crop_path = Path(str(image_path)).with_suffix(".crop.jpg")
-            cropped.save(str(crop_path))
-
-            # 二次检测
-            crop_result = self.detect(crop_path)
-            crop_path.unlink(missing_ok=True)  # 清理临时文件
-            crop_result.elapsed_ms = (time.perf_counter() - t0) * 1000
-            crop_result.image_path = str(image_path)
-            return crop_result
-        except Exception:
-            full_result.elapsed_ms = (time.perf_counter() - t0) * 1000
-            return full_result
-
     @classmethod
     def from_settings(cls, settings) -> "Detector":
         """从 Settings 实例创建 Detector。"""
@@ -300,11 +246,3 @@ class Detector:
             iou_thresh=settings.iou_thresh,
             class_filter=settings.class_filter,
         )
-
-
-# ── 向后兼容的模块级函数 ──────────────────────────────────
-
-
-def detect(image_path: str | Path) -> str:
-    """向后兼容：返回中文摘要字符串。"""
-    return Detector().detect_summary(image_path)

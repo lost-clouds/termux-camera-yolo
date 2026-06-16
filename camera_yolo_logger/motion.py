@@ -59,8 +59,11 @@ class MotionDetector:
         """手动更新参考帧（检测到运动后调用，重置基线）。"""
         try:
             self._reference = self._to_grayscale(image_path)
-        except Exception:
-            pass
+        except (OSError, ImportError, ValueError):
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to update motion reference frame: %s", image_path,
+            )
 
     def reset(self) -> None:
         """清除参考帧（场景切换时调用）。"""

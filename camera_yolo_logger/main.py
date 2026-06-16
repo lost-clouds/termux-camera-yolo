@@ -10,18 +10,17 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 from camera_yolo_logger.config import Settings, load_settings
-from camera_yolo_logger.capture import capture, capture_from_url
+from camera_yolo_logger.capture import capture_with_backend
 from camera_yolo_logger.detect import Detector
 from camera_yolo_logger.schemas import DetectionResult, CaptureResult
-from camera_yolo_logger.setup import ensure_first_run, trim_csv, run_setup_wizard
+from camera_yolo_logger.bootstrap import ensure_first_run, run_setup_wizard
+from camera_yolo_logger.utils import log_detection_to_csv, utc_now_str
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,39 +106,15 @@ def _format_json(ts: str, capture_result: CaptureResult,
     }, ensure_ascii=False)
 
 
-# ── CSV 日志 ────────────────────────────────────────────────
-
-
-def _log_to_csv(ts: str, description: str, log_file: Path) -> None:
-    need_header = not log_file.exists() or log_file.stat().st_size == 0
-    with open(log_file, "a", newline="") as f:
-        w = csv.writer(f)
-        if need_header:
-            w.writerow(["timestamp", "detected"])
-        w.writerow([ts, description])
-
-
-def _log_and_trim(ts: str, description: str, settings: Settings) -> None:
-    """写入 CSV 后自动裁剪超出 max_records 的旧记录。"""
-    log_path = Path(settings.log_file)
-    _log_to_csv(ts, description, log_path)
-    removed = trim_csv(log_path, settings.csv_max_records)
-    if removed > 0 and settings.verbose:
-        print(f"CSV 裁剪: 删除 {removed} 条旧记录", file=sys.stderr)
-
-
 # ── 一次性检测 ─────────────────────────────────────────────
 
 
 def run_once(settings: Settings) -> int:
     """执行单次检测：拍照 → 识别 → 输出。返回 exit code。"""
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    ts = utc_now_str()
 
     # 1. 拍照
-    if settings.capture_backend in ("ipwebcam", "url") and settings.ip_webcam_url:
-        cap_result = capture_from_url(settings.ip_webcam_url, settings)
-    else:
-        cap_result = capture(settings)
+    cap_result = capture_with_backend(settings)
 
     if not cap_result.success:
         err = cap_result.error or "拍照失败"
@@ -148,7 +123,8 @@ def run_once(settings: Settings) -> int:
                                DetectionResult(success=False, objects=[], summary=err, error=err)))
         else:
             print(f"{ts},拍照失败: {err}")
-        _log_and_trim(ts, f"拍照失败: {err}", settings)
+        log_detection_to_csv(ts, f"拍照失败: {err}", Path(settings.log_file),
+                             max_records=settings.csv_max_records, verbose=settings.verbose)
         return 1
 
     # 2. 运动预过滤
@@ -160,7 +136,8 @@ def run_once(settings: Settings) -> int:
                 print(json.dumps({"timestamp": ts, "status": "no_motion"}, ensure_ascii=False))
             else:
                 print(f"{ts},无运动")
-            _log_and_trim(ts, "无运动", settings)
+            log_detection_to_csv(ts, "无运动", Path(settings.log_file),
+                                 max_records=settings.csv_max_records, verbose=settings.verbose)
             return 0
         md.update(str(cap_result.path))
 
@@ -174,7 +151,8 @@ def run_once(settings: Settings) -> int:
         print(_format_json(ts, cap_result, det_result))
     else:
         print(_format_text(ts, det_result))
-    _log_and_trim(ts, det_result.summary, settings)
+    log_detection_to_csv(ts, det_result.summary, Path(settings.log_file),
+                         max_records=settings.csv_max_records, verbose=settings.verbose)
 
     return 0
 

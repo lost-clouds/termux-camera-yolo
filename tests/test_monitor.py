@@ -121,7 +121,7 @@ class TestMonitorRun:
                      capture_timeout=1, photo_cmd="nonexistent")
         m = Monitor(s)
         # 在第一次迭代后发送信号
-        with patch("camera_yolo_logger.monitor.capture") as mock_cap:
+        with patch("camera_yolo_logger.monitor.capture_with_backend") as mock_cap:
             mock_cap.return_value = CaptureResult(
                 success=False, error="simulated failure",
             )

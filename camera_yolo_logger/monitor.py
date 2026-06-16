@@ -6,11 +6,11 @@ import shutil
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from camera_yolo_logger.config import Settings
-from camera_yolo_logger.capture import capture, capture_from_url
+from camera_yolo_logger.capture import capture_with_backend
 from camera_yolo_logger.detect import Detector
 from camera_yolo_logger.motion import MotionDetector
 from camera_yolo_logger.schemas import DetectionResult, MonitorStats
@@ -69,10 +69,7 @@ class Monitor:
             self.stats.iterations += 1
 
             # 1. 拍照
-            if s.capture_backend in ("ipwebcam", "url") and s.ip_webcam_url:
-                cap_result = capture_from_url(s.ip_webcam_url, s)
-            else:
-                cap_result = capture(s)
+            cap_result = capture_with_backend(s)
             self.stats.capture_time_ms += cap_result.elapsed_ms
 
             if not cap_result.success:
@@ -162,8 +159,9 @@ class Monitor:
 
     def _archive(self, photo_path: Path, detection: DetectionResult) -> None:
         classes = sorted(set(o.class_name for o in detection.objects))
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        time_str = datetime.now().strftime("%H-%M-%S")
+        now = datetime.now(timezone.utc)
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H-%M-%S")
         class_str = "_".join(classes[:5])  # 最多 5 个类名
         dest_dir = Path(self.settings.archive_dir) / date_str
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -177,16 +175,13 @@ class Monitor:
                 print(f"存档失败: {exc}", file=sys.stderr)
 
     def _log_to_csv(self, detection: DetectionResult) -> None:
-        import csv
-        from camera_yolo_logger.setup import trim_csv
-        need_header = not self._log_path.exists() or self._log_path.stat().st_size == 0
+        from camera_yolo_logger.utils import log_detection_to_csv
         try:
-            with open(self._log_path, "a", newline="") as f:
-                w = csv.writer(f)
-                if need_header:
-                    w.writerow(["timestamp", "detected"])
-                w.writerow([self._now_str(), detection.summary])
-            trim_csv(self._log_path, self.settings.csv_max_records)
+            log_detection_to_csv(
+                self._now_str(), detection.summary,
+                self._log_path,
+                max_records=self.settings.csv_max_records,
+            )
         except OSError:
             pass
 
@@ -199,8 +194,11 @@ class Monitor:
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 signal.signal(sig, self._handle_signal)
-            except Exception:
-                pass  # 非主线程可能无法注册
+            except (ValueError, OSError):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Signal registration failed (not main thread?)",
+                )
 
     def _handle_signal(self, signum, frame) -> None:
         print(f"\n收到信号 {signum}，正在退出...", file=sys.stderr)
@@ -214,8 +212,10 @@ class Monitor:
 
     @staticmethod
     def _now_str() -> str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from camera_yolo_logger.utils import utc_now_str
+        return utc_now_str()
 
     @staticmethod
     def _now_iso() -> str:
-        return datetime.now().isoformat()
+        from camera_yolo_logger.utils import utc_now_iso
+        return utc_now_iso()

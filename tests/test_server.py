@@ -101,7 +101,7 @@ class TestDetectEndpoint:
             app.config["TESTING"] = True
             client = app.test_client()
 
-            with patch("camera_yolo_logger.server.capture") as mock_cap:
+            with patch("camera_yolo_logger.server.capture_with_backend") as mock_cap:
                 mock_cap.return_value = CaptureResult(
                     success=True, path=Path("/tmp/img.jpg"), image_size=(100, 100),
                 )
@@ -115,7 +115,7 @@ class TestDetectEndpoint:
         from pathlib import Path
         from camera_yolo_logger.schemas import CaptureResult
 
-        with patch("camera_yolo_logger.server.capture") as mock_cap:
+        with patch("camera_yolo_logger.server.capture_with_backend") as mock_cap:
             mock_cap.return_value = CaptureResult(
                 success=False, error="Camera not available",
             )
@@ -143,7 +143,7 @@ class TestDetectEndpoint:
             app.config["TESTING"] = True
             client = app.test_client()
 
-            with patch("camera_yolo_logger.server.capture") as mock_cap:
+            with patch("camera_yolo_logger.server.capture_with_backend") as mock_cap:
                 mock_cap.return_value = CaptureResult(
                     success=True, path=Path("/tmp/img.jpg"),
                 )

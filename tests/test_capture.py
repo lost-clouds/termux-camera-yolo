@@ -1,4 +1,4 @@
-"""测试 capture.py — 拍照重试、超时、capture_from_url、cleanup_photo。"""
+"""测试 capture.py — 拍照重试、超时、capture_from_url。"""
 from __future__ import annotations
 
 import subprocess
@@ -11,7 +11,6 @@ from camera_yolo_logger.capture import (
     _single_capture,
     capture,
     capture_from_url,
-    cleanup_photo,
 )
 from camera_yolo_logger.config import Settings
 
@@ -129,18 +128,3 @@ class TestCaptureFromURL:
             result = capture_from_url("http://example.com/shot.jpg", s)
         assert result.success is False
         assert "网络" in (result.error or "") or "network" in (result.error or "").lower() or "抓取失败" in (result.error or "")
-
-
-class TestCleanupPhoto:
-    def test_cleanup_existing(self, tmp_dir):
-        path = tmp_dir / "photo.jpg"
-        path.write_text("dummy")
-        s = Settings(photo_path=str(path))
-        assert path.exists()
-        cleanup_photo(s)
-        assert not path.exists()
-
-    def test_cleanup_nonexistent(self, tmp_dir):
-        path = tmp_dir / "nonexistent.jpg"
-        s = Settings(photo_path=str(path))
-        cleanup_photo(s)  # 不应抛出异常

@@ -7,11 +7,11 @@ dependencies = [
     "numpy>=1.21",
     "onnxruntime>=1.15; sys_platform != 'android'",
     "pillow>=10.0",
+    "tomli>=2.0.1; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
 server = ["flask>=3.0"]
-webhook = ["requests>=2.28"]
 
 [project.scripts]
 camera-yolo = "camera_yolo_logger.main:main"

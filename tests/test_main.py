@@ -12,10 +12,10 @@ import pytest
 from camera_yolo_logger.main import (
     _format_json,
     _format_text,
-    _log_to_csv,
     build_parser,
     run_once,
 )
+from camera_yolo_logger.utils import log_detection_to_csv
 from camera_yolo_logger.config import Settings
 from camera_yolo_logger.schemas import BBox, CaptureResult, Detection, DetectionResult
 
@@ -119,7 +119,7 @@ class TestFormatFunctions:
 class TestLogToCSV:
     def test_creates_new_file(self, tmp_dir):
         log_path = tmp_dir / "test_log.csv"
-        _log_to_csv("2026-05-08 12:00:00", "1个人", log_path)
+        log_detection_to_csv("2026-05-08 12:00:00", "1个人", log_path)
         assert log_path.exists()
 
         with open(log_path) as f:
@@ -130,8 +130,8 @@ class TestLogToCSV:
 
     def test_appends_to_existing(self, tmp_dir):
         log_path = tmp_dir / "test_log.csv"
-        _log_to_csv("t1", "d1", log_path)
-        _log_to_csv("t2", "d2", log_path)
+        log_detection_to_csv("t1", "d1", log_path)
+        log_detection_to_csv("t2", "d2", log_path)
 
         with open(log_path) as f:
             rows = list(csv.reader(f))
@@ -167,7 +167,7 @@ class TestRunOnce:
         fake_model = tmp_dir / "fake.onnx"
         fake_model.write_text("dummy")
 
-        with patch("camera_yolo_logger.main.capture") as mock_cap:
+        with patch("camera_yolo_logger.main.capture_with_backend") as mock_cap:
             mock_cap.return_value = CaptureResult(
                 success=True, path=img_path, image_size=(100, 100),
             )
@@ -197,7 +197,7 @@ class TestRunOnce:
             capture_retry=1, capture_timeout=10,
         )
 
-        with patch("camera_yolo_logger.main.capture") as mock_cap:
+        with patch("camera_yolo_logger.main.capture_with_backend") as mock_cap:
             mock_cap.return_value = CaptureResult(
                 success=True, path=img_path, image_size=(100, 100),
             )

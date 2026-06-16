@@ -197,6 +197,10 @@ def _toml_to_dict(path: str | None) -> dict[str, Any]:
             except ImportError:
                 continue
             except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Failed to parse TOML config: %s", p, exc_info=True,
+                )
                 continue
 
             for section, sec_def in section_defs.items():
@@ -246,8 +250,6 @@ def _cli_to_dict(args: Namespace | None) -> dict[str, Any]:
         val = getattr(args, f, None)
         if val is not None and val != []:
             d[f] = val
-        elif f in cli_aliases and str(cli_aliases[f]).endswith(f):
-            pass  # 主名已检查过
     # CLI 别名映射
     for alias, field in cli_aliases.items():
         if field not in d:
