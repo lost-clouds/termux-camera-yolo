@@ -201,9 +201,9 @@ with open('camera_log.csv') as f:
 camera_yolo_logger/
 ├── schemas.py    — BBox, Detection, DetectionResult, CaptureResult dataclass
 ├── config.py     — Settings + 分层加载 (CLI/env/TOML/defaults)
-├── utils.py      — FileLock (fcntl), timed 装饰器
+├── utils.py      — FileLock (fcntl), CSV 日志, 时间戳
 ├── capture.py    — 拍照: termux-camera-photo / IP Webcam, 超时重试
-├── detect.py     — YOLOv8 ONNX 推理, Detector class, 数字裁剪
+├── detect.py     — YOLOv8 ONNX 推理, Detector class
 ├── motion.py     — 运动检测预过滤器 (帧差分 MSE)
 ├── monitor.py    — 连续监控循环, 自适应间隔, 存档
 ├── notify.py     — Webhook 通知 (检测到触发类 → POST JSON)

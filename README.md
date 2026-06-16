@@ -251,10 +251,10 @@ termux-camera-yolo/
 │   ├── __main__.py     # python -m 入口
 │   ├── schemas.py      # 数据结构 (BBox, Detection, DetectionResult, CaptureResult)
 │   ├── config.py       # 配置管理 (Settings + CLI/env/TOML 分层加载)
-│   ├── utils.py        # 工具 (FileLock 并发锁, timed 装饰器)
-│   ├── setup.py        # 首次运行配置 (自动生成 TOML, --setup 向导, CSV 裁剪)
+│   ├── utils.py        # 工具 (FileLock 并发锁, CSV 日志, 时间戳)
+│   ├── bootstrap.py    # 首次运行配置 (自动生成 TOML, --setup 向导)
 │   ├── capture.py      # 拍照 (termux-camera-photo / IP Webcam, 超时重试)
-│   ├── detect.py       # YOLO ONNX 推理 (Detector 类, NMS, 数字变焦)
+│   ├── detect.py       # YOLO ONNX 推理 (Detector 类, NMS)
 │   ├── motion.py       # 运动检测预过滤器 (帧差分 MSE)
 │   ├── monitor.py      # 连续监控循环 (自适应间隔, 存档)
 │   ├── notify.py       # Webhook 通知
@@ -264,12 +264,12 @@ termux-camera-yolo/
 │   ├── conftest.py         # 共享 fixtures
 │   ├── test_schemas.py     # 数据结构测试 (17)
 │   ├── test_config.py      # 配置管理测试 (20)
-│   ├── test_utils.py       # 工具测试 (9)
-│   ├── test_capture.py     # 拍照测试 (11)
-│   ├── test_detect.py      # 检测测试 (21)
+│   ├── test_utils.py       # 工具测试 (6)
+│   ├── test_capture.py     # 拍照测试 (9)
+│   ├── test_detect.py      # 检测测试 (17)
 │   ├── test_motion.py      # 运动检测测试 (8)
-│   ├── test_main.py        # CLI 入口测试 (14)
-│   ├── test_monitor.py     # 监控测试 (16)
+│   ├── test_main.py        # CLI 入口测试 (18)
+│   ├── test_monitor.py     # 监控测试 (15)
 │   ├── test_notify.py      # 通知测试 (9)
 │   └── test_server.py      # HTTP API 测试 (10)
 ├── install.sh              # 一键安装脚本 (创建全局 camera-yolo 命令)
@@ -283,7 +283,7 @@ termux-camera-yolo/
 ## 测试
 
 ```bash
-# 运行全部 135 项测试
+# 运行全部 129 项测试
 uv run pytest tests/ -v
 
 # 或在安装了 pytest 的环境中
