@@ -15,3 +15,5 @@ captures/
 *.lock
 .pytest_cache/
 tests/__pycache__/
+.claude/
+.vscode/
